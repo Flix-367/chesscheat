@@ -11,7 +11,7 @@ object BoardReader {
     var boardRect = Rect(0, 230, 1080, 1310) 
     private var lastScanTime = 0L
     var lastRequestedFen = ""
-    var currentTurn = "w" // Mặc định là Trắng, mày có thể đổi ở MainActivity
+    var currentTurn = "w"
 
     fun init(ctx: Context) {
         PieceDetector.loadTemplates(ctx)
@@ -31,21 +31,20 @@ object BoardReader {
 
     fun onFrame(bmp: Bitmap) {
         val now = System.currentTimeMillis()
-        // Quét 0.5s/lần để bắt kịp thời gian thực
-        if (now - lastScanTime < 500) return 
+        if (now - lastScanTime < 300) return 
         lastScanTime = now
 
         OverlayBus.updateBoardRect(boardRect)
 
         val newFen = PieceDetector.getFenFromBoard(bmp, boardRect, currentTurn)
-        
-        if (newFen != null && newFen != lastRequestedFen) {
+        OverlayBus.updateFenText("FEN: $newFen")
+
+        if (newFen.startsWith("LỖI")) return
+
+        if (newFen != lastRequestedFen) {
             lastRequestedFen = newFen
             Log.d("BoardReader", "Đọc được FEN: $newFen")
             
-            // Hiện FEN lên màn hình để debug
-            OverlayBus.updateFenText("AI đang nghĩ cho: $newFen")
-
             ChessEngine.getBestMove(newFen) { bestMove ->
                 if (bestMove != null && bestMove.length >= 4) {
                     drawArrow(bestMove)

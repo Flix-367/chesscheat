@@ -12,7 +12,10 @@ class ArrowView(ctx: Context) : View(ctx) {
                      val toX: Float, val toY: Float, val color: Int = 0xFF00FF88.toInt())
 
     private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE; strokeWidth = 8f; color = 0xFFFF0000.toInt()
+        style = Paint.Style.STROKE; strokeWidth = 5f; color = 0xFFFF0000.toInt()
+    }
+    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE; strokeWidth = 2f; color = 0x88FFFFFF.toInt()
     }
     private val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE; strokeWidth = 12f; strokeCap = Paint.Cap.ROUND; color = 0xFF00FF88.toInt()
@@ -21,14 +24,20 @@ class ArrowView(ctx: Context) : View(ctx) {
         style = Paint.Style.FILL; color = 0xFF00FF88.toInt()
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = 30f; color = 0xFFFF0000.toInt(); typeface = Typeface.DEFAULT_BOLD
+        textSize = 35f; color = 0xFFFF0000.toInt(); typeface = Typeface.DEFAULT_BOLD
     }
 
     override fun onDraw(canvas: Canvas) {
-        OverlayBus.boardRect?.let {
-            canvas.drawRect(it, boxPaint)
-            // Vẽ FEN lên trên khung
-            canvas.drawText(OverlayBus.fenText, it.left.toFloat(), (it.top - 20).toFloat(), textPaint)
+        OverlayBus.boardRect?.let { rect ->
+            canvas.drawRect(rect, boxPaint)
+            canvas.drawText(OverlayBus.fenText, rect.left.toFloat(), (rect.top - 20).toFloat(), textPaint)
+            
+            val cellW = rect.width() / 8f
+            val cellH = rect.height() / 8f
+            for (i in 1..7) {
+                canvas.drawLine(rect.left + i * cellW, rect.top.toFloat(), rect.left + i * cellW, rect.bottom.toFloat(), gridPaint)
+                canvas.drawLine(rect.left.toFloat(), rect.top + i * cellH, rect.right.toFloat(), rect.top + i * cellH, gridPaint)
+            }
         }
         
         OverlayBus.arrow?.let { a ->
