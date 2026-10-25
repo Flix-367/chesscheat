@@ -2,9 +2,6 @@ package com.ollie.chesscheat
 
 import android.content.Context
 import android.graphics.*
-import android.os.Environment
-import java.io.File
-import java.io.FileOutputStream
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -12,7 +9,6 @@ import kotlin.math.min
 object PieceDetector {
     private val templates = mutableMapOf<String, Bitmap>()
     private var isLoaded = false
-    private var savedCount = 0
 
     fun loadTemplates(ctx: Context) {
         if (isLoaded) return
@@ -40,19 +36,6 @@ object PieceDetector {
         val boardBmp = Bitmap.createBitmap(fullBmp, safeLeft, safeTop, safeRight - safeLeft, safeBottom - safeTop)
         val scaledBoard = Bitmap.createScaledBitmap(boardBmp, 256, 256, true)
         
-        // --- LƯU ẢNH DEBUG ĐỂ XEM MẮT NÓ THẤY GÌ ---
-        if (savedCount < 5) {
-            try {
-                val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val file = File(downloadDir, "board_crop_$savedCount.png")
-                val out = FileOutputStream(file)
-                scaledBoard.compress(Bitmap.CompressFormat.PNG, 100, out)
-                out.close()
-                savedCount++
-            } catch (e: Exception) {}
-        }
-        // -------------------------------------------
-
         val allPixels = IntArray(256 * 256)
         scaledBoard.getPixels(allPixels, 0, 256, 0, 0, 256, 256)
 
@@ -87,9 +70,29 @@ object PieceDetector {
     }
 
     private fun findBestMatch(cellPixels: IntArray): String? {
+        // Kiểm tra xem ô có quân cờ không bằng cách so sánh độ chênh lệch màu ở 4 góc và giữa
+        // Nếu ô trống, cả 5 điểm này sẽ cùng một màu (xanh hoặc trắng)
+        val corners = intArrayOf(
+            cellPixels[0], cellPixels[31], 
+            cellPixels[31 * 32], cellPixels[31 * 32 + 31],
+            cellPixels[16 * 32 + 16]
+        )
+        var maxCornerDiff = 0
+        for (i in 0 until 5) {
+            for (j in i+1 until 5) {
+                val r1 = corners[i] shr 16 and 0xFF; val g1 = corners[i] shr 8 and 0xFF; val b1 = corners[i] and 0xFF
+                val r2 = corners[j] shr 16 and 0xFF; val g2 = corners[j] shr 8 and 0xFF; val b2 = corners[j] and 0xFF
+                val diff = abs(r1-r2) + abs(g1-g2) + abs(b1-b2)
+                if (diff > maxCornerDiff) maxCornerDiff = diff
+            }
+        }
+        // Nếu chênh lệch màu giữa các góc quá nhỏ, đây là ô trống
+        if (maxCornerDiff < 30) return null
+
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        val threshold = 150.0 
+        // Hạ ngưỡng cực chặt, chỉ khớp khi giống hệt
+        val threshold = 25.0 
 
         for ((name, template) in templates) {
             val tplPixels = IntArray(32 * 32)
@@ -100,7 +103,7 @@ object PieceDetector {
             
             for (i in 0 until 32 * 32) {
                 val tplAlpha = (tplPixels[i] ushr 24) and 0xFF
-                if (tplAlpha > 50) { // Lấy các pixel đặc của quân cờ
+                if (tplAlpha > 150) { // Chỉ so sánh phần lõi đặc của quân cờ
                     val c1 = (cellPixels[i] shr 16 and 0xFF) * 0.299 + (cellPixels[i] shr 8 and 0xFF) * 0.587 + (cellPixels[i] and 0xFF) * 0.114
                     val c2 = (tplPixels[i] shr 16 and 0xFF) * 0.299 + (tplPixels[i] shr 8 and 0xFF) * 0.587 + (tplPixels[i] and 0xFF) * 0.114
                     diff += abs(c1 - c2)
@@ -108,7 +111,7 @@ object PieceDetector {
                 }
             }
             
-            if (validPixels > 100) {
+            if (validPixels > 150) { // Quân cờ phải có đủ số pixel đặc
                 diff /= validPixels.toDouble()
                 if (diff < minDiff && diff < threshold) {
                     minDiff = diff
