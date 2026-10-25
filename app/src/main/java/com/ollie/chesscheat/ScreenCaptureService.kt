@@ -19,9 +19,6 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
-import java.io.File
-import java.io.PrintWriter
-import java.io.StringWriter
 
 class ScreenCaptureService : Service() {
     private var projection: MediaProjection? = null
@@ -30,6 +27,7 @@ class ScreenCaptureService : Service() {
     private var handlerThread: HandlerThread? = null
     private var backgroundHandler: Handler? = null
     private var lastScanTime = 0L
+    private var frameCounter = 0
 
     override fun onBind(i: Intent?): IBinder? = null
 
@@ -54,12 +52,8 @@ class ScreenCaptureService : Service() {
                 val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                 projection = mpm.getMediaProjection(resultCode, data)
                 
-                // ĐĂNG KÝ CALLBACK BẮT BUỘC CHO ANDROID 14 TRƯỚC KHI TẠO DISPLAY
                 projection?.registerCallback(object : MediaProjection.Callback() {
-                    override fun onStop() {
-                        super.onStop()
-                        stopEverything()
-                    }
+                    override fun onStop() { super.onStop(); stopEverything() }
                 }, Handler(Looper.getMainLooper()))
 
                 setupCapture()
@@ -68,26 +62,17 @@ class ScreenCaptureService : Service() {
             Handler(Looper.getMainLooper()).post {
                 Toast.makeText(this, "Lỗi Service: ${e.message}", Toast.LENGTH_LONG).show()
             }
-            val sw = StringWriter()
-            e.printStackTrace(PrintWriter(sw))
-            try {
-                val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-                File(downloadDir, "chesscheat_service_crash.txt").writeText(sw.toString())
-            } catch (ex: Exception) {}
-            stopSelf()
         }
         return START_STICKY
     }
 
     private fun setupCapture() {
-        // Tạo luồng ngầm riêng để xử lý ảnh
         handlerThread = HandlerThread("ImageReaderThread").apply { start() }
         backgroundHandler = Handler(handlerThread!!.looper)
 
         val metrics = resources.displayMetrics
-        // Giảm độ phân giải một nửa để đỡ tràn RAM
-        val width = metrics.widthPixels / 2
-        val height = metrics.heightPixels / 2
+        val width = metrics.widthPixels
+        val height = metrics.heightPixels
 
         reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         
@@ -100,8 +85,16 @@ class ScreenCaptureService : Service() {
         reader?.setOnImageAvailableListener({ r ->
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             val now = System.currentTimeMillis()
-            if (now - lastScanTime < 200) { image.close(); return@setOnImageAvailableListener }
+            if (now - lastScanTime < 300) { image.close(); return@setOnImageAvailableListener }
             lastScanTime = now
+
+            frameCounter++
+            // Cứ 10 frame thì báo 1 lần để biết nó có chạy
+            if (frameCounter % 10 == 0) {
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(this, "Đang nhận ảnh: $frameCounter", Toast.LENGTH_SHORT).show()
+                }
+            }
 
             try {
                 val plane = image.planes[0]
@@ -112,7 +105,10 @@ class ScreenCaptureService : Service() {
                 bmp.copyPixelsFromBuffer(plane.buffer)
                 BoardReader.onFrame(bmp)
             } catch (e: Exception) {
-                Log.e("ScreenCapture", "Lỗi: ${e.message}")
+                Log.e("ScreenCapture", "Lỗi đọc ảnh: ${e.message}")
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(this, "Lỗi đọc ảnh: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             } finally {
                 image.close()
             }
