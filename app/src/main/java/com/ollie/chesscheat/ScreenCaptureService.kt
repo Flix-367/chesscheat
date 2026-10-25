@@ -63,6 +63,14 @@ class ScreenCaptureService : Service() {
         }, Handler(Looper.getMainLooper()))
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        // Dọn dẹp tài nguyên
+        display?.release()
+        reader?.close()
+        projection?.stop()
+    }
+
     private fun buildNotif(): Notification {
         val channelId = "capture"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

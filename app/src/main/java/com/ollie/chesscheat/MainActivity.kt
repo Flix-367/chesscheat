@@ -15,6 +15,9 @@ class MainActivity : AppCompatActivity() {
     private val REQ_CAPTURE = 1001
     private val REQ_OVERLAY = 1002
 
+    private lateinit var btnStart: Button
+    private lateinit var btnStop: Button
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val layout = LinearLayout(this).apply {
@@ -24,12 +27,21 @@ class MainActivity : AppCompatActivity() {
         layout.addView(TextView(this).apply {
             text = "Chess Cheat - Overlay Test"
             textSize = 24f
+            setPadding(0, 0, 0, 60)
         })
         
-        layout.addView(Button(this).apply {
+        btnStart = Button(this).apply {
             text = "Bắt đầu quét"
             setOnClickListener { checkPermissions() }
-        })
+        }
+        layout.addView(btnStart)
+
+        btnStop = Button(this).apply {
+            text = "Dừng quét"
+            setOnClickListener { stopEverything() }
+        }
+        layout.addView(btnStop)
+
         setContentView(layout)
     }
 
@@ -46,15 +58,23 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CAPTURE)
     }
 
+    private fun stopEverything() {
+        // Tắt service chụp màn hình
+        stopService(Intent(this, ScreenCaptureService::class.java))
+        // Tắt overlay vẽ khung
+        stopService(Intent(this, OverlayService::class.java))
+        // Xoá dữ liệu tạm
+        OverlayBus.boardRect = null
+        OverlayBus.view = null
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_OVERLAY) {
             if (Settings.canDrawOverlays(this)) startCapture()
         } else if (requestCode == REQ_CAPTURE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                // Bật overlay
                 startService(Intent(this, OverlayService::class.java))
-                // Bật quét màn hình
                 val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
                     putExtra("resultCode", resultCode)
                     putExtra("data", data)
