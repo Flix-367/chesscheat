@@ -35,6 +35,7 @@ object BoardReader {
         if (now - lastScanTime < 300) return 
         lastScanTime = now
 
+        // Cố tình gọi hàm vẽ khung liên tục để test
         OverlayBus.updateBoardRect(boardRect)
 
         val newFen = PieceDetector.getFenFromBoard(bmp, boardRect, currentTurn, isFlipped)
@@ -61,12 +62,10 @@ object BoardReader {
         fun getXY(square: String): Pair<Float, Float> {
             var file = square[0].lowercaseChar() - 'a'
             var rank = 8 - square[1].digitToInt()
-            
             if (isFlipped) {
                 file = 7 - file
                 rank = 7 - rank
             }
-            
             val x = boardRect.left + file * cellW + cellW / 2
             val y = boardRect.top + rank * cellH + cellH / 2
             return Pair(x, y)

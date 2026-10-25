@@ -1,21 +1,16 @@
 package com.ollie.chesscheat
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.Settings
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.widget.Toast
+import android.text.InputType
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import java.io.File
-import java.io.PrintWriter
-import java.io.StringWriter
 
 class MainActivity : AppCompatActivity() {
     private val REQ_CAPTURE = 1001
@@ -25,27 +20,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        BoardReader.init(this)
-
-        // Bộ bắt lỗi: Ghi ra Download/crash_log.txt
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            val sw = StringWriter()
-            throwable.printStackTrace(PrintWriter(sw))
-            val stackTrace = sw.toString()
-            
-            try {
-                val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val logFile = File(downloadDir, "chesscheat_crash.txt")
-                logFile.writeText(stackTrace)
-            } catch (e: Exception) {}
-
-            runOnUiThread {
-                Toast.makeText(applicationContext, "App văng! Xem file Download/chesscheat_crash.txt", Toast.LENGTH_LONG).show()
-            }
-            Thread.sleep(1000)
-            android.os.Process.killProcess(android.os.Process.myPid())
-            System.exit(1)
-        }
+        
+        try { BoardReader.init(this) } catch (e: Exception) {}
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -54,25 +30,67 @@ class MainActivity : AppCompatActivity() {
         layout.addView(TextView(this).apply { text = "Chess Cheat"; textSize = 24f })
         
         tvError = TextView(this).apply {
-            text = "Chưa có lỗi."
+            text = "Sẵn sàng."
             textSize = 14f
             setTextColor(android.graphics.Color.RED)
-            setPadding(0, 20, 0, 40)
+            setPadding(0, 20, 0, 20)
         }
         layout.addView(tvError)
 
+        val prefs = getSharedPreferences("chess_prefs", Context.MODE_PRIVATE)
+        
+        fun createInputRow(label: String, key: String, default: Int): EditText {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 10, 0, 10) }
+            row.addView(TextView(this).apply { text = label; width = 150 })
+            val et = EditText(this).apply { 
+                inputType = InputType.TYPE_CLASS_NUMBER
+                setText(prefs.getInt(key, default).toString())
+            }
+            row.addView(et, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            layout.addView(row)
+            return et
+        }
+
+        val etLeft = createInputRow("Left:", "left", 0)
+        val etTop = createInputRow("Top:", "top", 230)
+        val etRight = createInputRow("Right:", "right", 1080)
+        val etBottom = createInputRow("Bottom:", "bottom", 1310)
+
+        layout.addView(Button(this).apply {
+            text = "Lưu Toạ Độ"
+            setOnClickListener {
+                prefs.edit()
+                    .putInt("left", etLeft.text.toString().toIntOrNull() ?: 0)
+                    .putInt("top", etTop.text.toString().toIntOrNull() ?: 230)
+                    .putInt("right", etRight.text.toString().toIntOrNull() ?: 1080)
+                    .putInt("bottom", etBottom.text.toString().toIntOrNull() ?: 1310)
+                    .apply()
+                BoardReader.loadRectFromPrefs(this@MainActivity)
+                Toast.makeText(this@MainActivity, "Đã lưu toạ độ mới!", Toast.LENGTH_SHORT).show()
+            }
+        })
+
+        layout.addView(Button(this).apply {
+            text = "Lật Bàn Cờ (Đen/Trắng)"
+            setOnClickListener {
+                BoardReader.isFlipped = !BoardReader.isFlipped
+                Toast.makeText(this@MainActivity, "Lật bàn cờ: ${BoardReader.isFlipped}", Toast.LENGTH_SHORT).show()
+                BoardReader.lastRequestedFen = ""
+            }
+        })
+        
         layout.addView(Button(this).apply {
             text = "Đổi Lượt (Trắng/Đen)"
             setOnClickListener {
                 BoardReader.currentTurn = if (BoardReader.currentTurn == "w") "b" else "w"
-                Toast.makeText(this@MainActivity, "Lượt hiện tại: ${if (BoardReader.currentTurn == "w") "Trắng" else "Đen"}", Toast.LENGTH_SHORT).show()
-                BoardReader.lastRequestedFen = "" // Reset để nó gọi lại API
+                Toast.makeText(this@MainActivity, "Lượt: ${if (BoardReader.currentTurn == "w") "Trắng" else "Đen"}", Toast.LENGTH_SHORT).show()
+                BoardReader.lastRequestedFen = ""
             }
         })
+
         layout.addView(Button(this).apply {
             text = "Bắt đầu quét"
             setOnClickListener { 
-                tvError.text = "Đang xin quyền..."
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
                 } else {
@@ -82,18 +100,12 @@ class MainActivity : AppCompatActivity() {
         })
 
         layout.addView(Button(this).apply {
-            text = "Đổi Lượt (Trắng/Đen)"
-            setOnClickListener {
-                BoardReader.currentTurn = if (BoardReader.currentTurn == "w") "b" else "w"
-                Toast.makeText(this@MainActivity, "Lượt hiện tại: ${if (BoardReader.currentTurn == "w") "Trắng" else "Đen"}", Toast.LENGTH_SHORT).show()
-                BoardReader.lastRequestedFen = "" // Reset để nó gọi lại API
-            }
-        })
-        layout.addView(Button(this).apply {
             text = "Dừng quét"
             setOnClickListener { stopEverything() }
         })
-        setContentView(layout)
+        
+        val scroll = ScrollView(this).apply { addView(layout) }
+        setContentView(scroll)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -103,7 +115,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermissions() {
         if (!Settings.canDrawOverlays(this)) {
-            tvError.text = "Đang xin quyền Overlay..."
             startActivityForResult(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), REQ_OVERLAY)
         } else {
             startCapture()
@@ -111,7 +122,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCapture() {
-        tvError.text = "Đang xin quyền chụp màn hình..."
         val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CAPTURE)
     }
@@ -119,6 +129,7 @@ class MainActivity : AppCompatActivity() {
     private fun stopEverything() {
         stopService(Intent(this, ScreenCaptureService::class.java))
         stopService(Intent(this, OverlayService::class.java))
+        OverlayBus.view = null
         tvError.text = "Đã dừng quét."
     }
 
@@ -126,23 +137,20 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_OVERLAY) {
             if (Settings.canDrawOverlays(this)) startCapture()
-            else tvError.text = "Lỗi: Mày chưa cấp quyền Overlay!"
+            else tvError.text = "Lỗi: Chưa cấp quyền Overlay!"
         } else if (requestCode == REQ_CAPTURE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
                 try {
-                    tvError.text = "Đang bật Overlay và Dịch vụ..."
                     startService(Intent(this, OverlayService::class.java))
                     val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
                         putExtra("resultCode", resultCode)
                         putExtra("data", data)
                     }
                     startForegroundService(serviceIntent)
-                    tvError.text = "Quét thành công! Mở cờ vua lên."
+                    tvError.text = "Quét thành công! Chỉnh toạ độ nếu lệch."
                 } catch (e: Exception) {
                     tvError.text = "Lỗi Start Service: ${e.message}"
                 }
-            } else {
-                tvError.text = "Mày đã bấm Hủy cấp quyền chụp màn hình."
             }
         }
     }
