@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        BoardReader.init(this)
 
         // Bộ bắt lỗi: Ghi ra Download/crash_log.txt
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
