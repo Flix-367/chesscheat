@@ -103,8 +103,6 @@ class MainActivity : AppCompatActivity() {
     private fun stopEverything() {
         stopService(Intent(this, ScreenCaptureService::class.java))
         stopService(Intent(this, OverlayService::class.java))
-        OverlayBus.boardRect = null
-        OverlayBus.view = null
         tvError.text = "Đã dừng quét."
     }
 

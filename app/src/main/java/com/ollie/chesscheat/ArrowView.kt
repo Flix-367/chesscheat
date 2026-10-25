@@ -22,12 +22,10 @@ class ArrowView(ctx: Context) : View(ctx) {
     }
 
     override fun onDraw(canvas: Canvas) {
-        // Vẽ khung bàn cờ
         OverlayBus.boardRect?.let {
             canvas.drawRect(it, boxPaint)
         }
         
-        // Vẽ mũi tên AI
         OverlayBus.arrow?.let { a ->
             canvas.drawLine(a.fromX, a.fromY, a.toX, a.toY, arrowPaint)
             val ang = atan2((a.toY - a.fromY).toDouble(), (a.toX - a.fromX).toDouble())

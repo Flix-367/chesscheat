@@ -20,22 +20,17 @@ object BoardReader {
 
     fun onFrame(bmp: Bitmap) {
         val now = System.currentTimeMillis()
-        // 1 giây quét 1 lần để đỡ nặng máy (vì có Computer Vision)
         if (now - lastScanTime < 1000) return 
         lastScanTime = now
 
         OverlayBus.updateBoardRect(boardRect)
 
-        // 1. Đọc bàn cờ từ ảnh
         val turnStr = if (isWhiteTurn) "w" else "b"
         val newFen = PieceDetector.getFenFromBoard(bmp, boardRect, turnStr)
 
-        // 2. Nếu thế cờ thay đổi (địch đánh hoặc mình đánh) -> Gọi AI
         if (newFen != currentFen) {
             currentFen = newFen
             Log.d("BoardReader", "FEN mới: $newFen")
-            
-            // Đổi lượt đi (nếu FEN trước đó là White, giờ là Black)
             isWhiteTurn = !isWhiteTurn 
             
             if (currentFen != lastRequestedFen) {
