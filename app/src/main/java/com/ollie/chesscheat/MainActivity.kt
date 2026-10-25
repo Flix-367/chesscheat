@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
@@ -14,9 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
     private val REQ_CAPTURE = 1001
     private val REQ_OVERLAY = 1002
-
-    private lateinit var btnStart: Button
-    private lateinit var btnStop: Button
+    private val REQ_NOTIF = 1003
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,24 +23,29 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 100, 60, 60)
         }
-        layout.addView(TextView(this).apply {
-            text = "Chess Cheat - Overlay Test"
-            textSize = 24f
-            setPadding(0, 0, 0, 60)
-        })
+        layout.addView(TextView(this).apply { text = "Chess Cheat"; textSize = 24f })
         
-        btnStart = Button(this).apply {
+        layout.addView(Button(this).apply {
             text = "Bắt đầu quét"
-            setOnClickListener { checkPermissions() }
-        }
-        layout.addView(btnStart)
+            setOnClickListener { 
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
+                } else {
+                    checkPermissions() 
+                }
+            }
+        })
 
-        btnStop = Button(this).apply {
+        layout.addView(Button(this).apply {
             text = "Dừng quét"
             setOnClickListener { stopEverything() }
-        }
-        layout.addView(btnStop)
+        })
         setContentView(layout)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_NOTIF) checkPermissions()
     }
 
     private fun checkPermissions() {
@@ -70,7 +74,10 @@ class MainActivity : AppCompatActivity() {
             if (Settings.canDrawOverlays(this)) startCapture()
         } else if (requestCode == REQ_CAPTURE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
+                // Ghi log ra Toast để xem nó chạy tới đâu
+                android.widget.Toast.makeText(this, "Chuẩn bị bật Overlay...", android.widget.Toast.LENGTH_SHORT).show()
                 startService(Intent(this, OverlayService::class.java))
+                
                 val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
                     putExtra("resultCode", resultCode)
                     putExtra("data", data)
