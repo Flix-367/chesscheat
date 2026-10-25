@@ -72,8 +72,15 @@ object PieceDetector {
     private fun findBestMatch(cellPixels: IntArray): String? {
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        // Tăng ngưỡng lên 85.0 để dễ nhận diện hơn (chấp nhận sai số)
-        val threshold = 85.0 
+        val threshold = 50.0 // Hạ ngưỡng xuống để bớt đọc nhầm nền thành quân cờ
+
+        // 1. Tính độ sáng trung bình của ô cờ hiện tại
+        var totalBrightness = 0
+        for (px in cellPixels) {
+            val b = (px shr 16 and 0xFF) * 0.299 + (px shr 8 and 0xFF) * 0.587 + (px and 0xFF) * 0.114
+            totalBrightness += b.toInt()
+        }
+        val avgBrightness = totalBrightness / cellPixels.size
 
         for ((name, template) in templates) {
             val tplPixels = IntArray(32 * 32)
@@ -84,7 +91,7 @@ object PieceDetector {
             
             for (i in 0 until 32 * 32) {
                 val tplAlpha = (tplPixels[i] ushr 24) and 0xFF
-                if (tplAlpha > 50) {
+                if (tplAlpha > 100) { // Nới lỏng alpha một chút để bắt được viền quân cờ
                     val c1 = (cellPixels[i] shr 16 and 0xFF) * 0.299 + (cellPixels[i] shr 8 and 0xFF) * 0.587 + (cellPixels[i] and 0xFF) * 0.114
                     val c2 = (tplPixels[i] shr 16 and 0xFF) * 0.299 + (tplPixels[i] shr 8 and 0xFF) * 0.587 + (tplPixels[i] and 0xFF) * 0.114
                     diff += abs(c1 - c2)
@@ -96,6 +103,13 @@ object PieceDetector {
                 diff /= validPixels.toDouble()
                 if (diff < minDiff && diff < threshold) {
                     minDiff = diff
+                    // 2. Check xem quân cờ này có khớp màu với độ sáng của ô không
+                    val isWhitePiece = name[0].isUpperCase()
+                    // Nếu là quân Trắng mà độ sáng TB < 100 -> Nhầm, nó là quân Đen
+                    // Nếu là quân Đen mà độ sáng TB > 150 -> Nhầm, nó là quân Trắng
+                    if (isWhitePiece && avgBrightness < 100) continue
+                    if (!isWhitePiece && avgBrightness > 150) continue
+
                     bestName = name
                 }
             }
