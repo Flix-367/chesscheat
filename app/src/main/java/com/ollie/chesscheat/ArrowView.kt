@@ -3,19 +3,42 @@ package com.ollie.chesscheat
 import android.content.Context
 import android.graphics.*
 import android.view.View
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 
 class ArrowView(ctx: Context) : View(ctx) {
+    data class Arrow(val fromX: Float, val fromY: Float,
+                     val toX: Float, val toY: Float, val color: Int = 0xFF00FF88.toInt())
+
     private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE; strokeWidth = 8f; color = 0xFFFF0000.toInt()
     }
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = 60f; color = 0xFFFF0000.toInt()
+    private val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE; strokeWidth = 12f; strokeCap = Paint.Cap.ROUND; color = 0xFF00FF88.toInt()
+    }
+    private val arrowHead = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL; color = 0xFF00FF88.toInt()
     }
 
     override fun onDraw(canvas: Canvas) {
-        val rect = OverlayBus.boardRect ?: return
-        // Vẽ khung đỏ khoanh vùng bàn cờ
-        canvas.drawRect(rect, boxPaint)
-        canvas.drawText("BOARD DETECTED", rect.left + 50f, rect.top - 20f, textPaint)
+        // Vẽ khung bàn cờ
+        OverlayBus.boardRect?.let {
+            canvas.drawRect(it, boxPaint)
+        }
+        
+        // Vẽ mũi tên AI
+        OverlayBus.arrow?.let { a ->
+            canvas.drawLine(a.fromX, a.fromY, a.toX, a.toY, arrowPaint)
+            val ang = atan2((a.toY - a.fromY).toDouble(), (a.toX - a.fromX).toDouble())
+            val s = 40.0
+            val path = Path().apply {
+                moveTo(a.toX, a.toY)
+                lineTo((a.toX - s * cos(ang - 0.4)).toFloat(), (a.toY - s * sin(ang - 0.4)).toFloat())
+                lineTo((a.toX - s * cos(ang + 0.4)).toFloat(), (a.toY - s * sin(ang + 0.4)).toFloat())
+                close()
+            }
+            canvas.drawPath(path, arrowHead)
+        }
     }
 }
