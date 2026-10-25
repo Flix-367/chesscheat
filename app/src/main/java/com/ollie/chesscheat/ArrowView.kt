@@ -20,10 +20,15 @@ class ArrowView(ctx: Context) : View(ctx) {
     private val arrowHead = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL; color = 0xFF00FF88.toInt()
     }
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 30f; color = 0xFFFF0000.toInt(); typeface = Typeface.DEFAULT_BOLD
+    }
 
     override fun onDraw(canvas: Canvas) {
         OverlayBus.boardRect?.let {
             canvas.drawRect(it, boxPaint)
+            // Vẽ FEN lên trên khung
+            canvas.drawText(OverlayBus.fenText, it.left.toFloat(), (it.top - 20).toFloat(), textPaint)
         }
         
         OverlayBus.arrow?.let { a ->

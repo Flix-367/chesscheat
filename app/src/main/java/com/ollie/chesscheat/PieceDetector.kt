@@ -1,13 +1,7 @@
 package com.ollie.chesscheat
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.*
 import kotlin.math.abs
 
 object PieceDetector {
@@ -21,40 +15,34 @@ object PieceDetector {
             try {
                 val stream = ctx.assets.open("pieces/$name.png")
                 val bmp = BitmapFactory.decodeStream(stream)
-                // Chuyển sang ảnh xám để dễ so sánh
-                val gray = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(gray)
-                val paint = Paint()
-                val cm = ColorMatrix()
-                cm.setSaturation(0f)
-                paint.colorFilter = ColorMatrixColorFilter(cm)
-                canvas.drawBitmap(bmp, 0f, 0f, paint)
-                templates[name] = Bitmap.createScaledBitmap(gray, 64, 64, true)
+                // Resize thẳng về 32x32 cho nhẹ máy
+                templates[name] = Bitmap.createScaledBitmap(bmp, 32, 32, true)
             } catch (e: Exception) {}
         }
-        isLoaded = true
+        isLoaded = templates.isNotEmpty()
     }
 
-    fun getFenFromBoard(bmp: Bitmap, boardRect: Rect, turn: String): String {
-        if (templates.isEmpty()) return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR $turn KQkq - 0 1"
+    fun getFenFromBoard(fullBmp: Bitmap, boardRect: Rect, turn: String): String? {
+        if (!isLoaded) return null
         
-        val cellW = boardRect.width() / 8f
-        val cellH = boardRect.height() / 8f
+        // Cắt vùng bàn cờ ra trước cho nhẹ máy
+        val boardBmp = Bitmap.createBitmap(fullBmp, boardRect.left, boardRect.top, boardRect.width(), boardRect.height())
+        val cellW = boardBmp.width / 8
+        val cellH = boardBmp.height / 8
         val rows = mutableListOf<String>()
 
         for (r in 0..7) {
             var empty = 0
             var rowStr = ""
             for (c in 0..7) {
-                val left = (boardRect.left + c * cellW).toInt()
-                val top = (boardRect.top + r * cellH).toInt()
+                val left = c * cellW
+                val top = r * cellH
                 
-                // Cắt ô cờ 64x64
-                val cell = Bitmap.createBitmap(bmp, left, top, cellW.toInt(), cellH.toInt())
-                val scaledCell = Bitmap.createScaledBitmap(cell, 64, 64, true)
-                val grayCell = toGrayscale(scaledCell)
+                // Cắt ô cờ và resize về 32x32
+                val cell = Bitmap.createBitmap(boardBmp, left, top, cellW, cellH)
+                val scaledCell = Bitmap.createScaledBitmap(cell, 32, 32, true)
                 
-                val bestMatch = findBestMatch(grayCell)
+                val bestMatch = findBestMatch(scaledCell)
                 if (bestMatch == null) {
                     empty++
                 } else {
@@ -68,36 +56,26 @@ object PieceDetector {
         return rows.joinToString("/") + " $turn KQkq - 0 1"
     }
 
-    private fun toGrayscale(bmp: Bitmap): Bitmap {
-        val gray = Bitmap.createBitmap(bmp.width, bmp.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(gray)
-        val paint = Paint()
-        val cm = ColorMatrix()
-        cm.setSaturation(0f)
-        paint.colorFilter = ColorMatrixColorFilter(cm)
-        canvas.drawBitmap(bmp, 0f, 0f, paint)
-        return gray
-    }
-
     private fun findBestMatch(cell: Bitmap): String? {
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        val threshold = 40.0 // Ngưỡng nhận diện (càng nhỏ càng khắt khe)
+        val threshold = 50.0 // Nới lỏng ngưỡng ra một chút
 
-        val cellPixels = IntArray(64 * 64)
-        cell.getPixels(cellPixels, 0, 64, 0, 0, 64, 64)
+        val cellPixels = IntArray(32 * 32)
+        cell.getPixels(cellPixels, 0, 32, 0, 0, 32, 32)
 
         for ((name, template) in templates) {
-            val tplPixels = IntArray(64 * 64)
-            template.getPixels(tplPixels, 0, 64, 0, 0, 64, 64)
+            val tplPixels = IntArray(32 * 32)
+            template.getPixels(tplPixels, 0, 32, 0, 0, 32, 32)
 
             var diff = 0.0
-            for (i in 0 until 64 * 64) {
-                val c1 = cellPixels[i] and 0xFF
-                val c2 = tplPixels[i] and 0xFF
+            for (i in 0 until 32 * 32) {
+                // So sánh độ sáng (Grayscale) thay vì màu để tránh lệch theme
+                val c1 = (cellPixels[i] shr 16 and 0xFF) * 0.299 + (cellPixels[i] shr 8 and 0xFF) * 0.587 + (cellPixels[i] and 0xFF) * 0.114
+                val c2 = (tplPixels[i] shr 16 and 0xFF) * 0.299 + (tplPixels[i] shr 8 and 0xFF) * 0.587 + (tplPixels[i] and 0xFF) * 0.114
                 diff += abs(c1 - c2)
             }
-            diff /= (64.0 * 64.0) // Trung bình khác biệt mỗi pixel
+            diff /= (32.0 * 32.0)
             
             if (diff < minDiff && diff < threshold) {
                 minDiff = diff

@@ -62,6 +62,14 @@ class MainActivity : AppCompatActivity() {
         layout.addView(tvError)
 
         layout.addView(Button(this).apply {
+            text = "Đổi Lượt (Trắng/Đen)"
+            setOnClickListener {
+                BoardReader.currentTurn = if (BoardReader.currentTurn == "w") "b" else "w"
+                Toast.makeText(this@MainActivity, "Lượt hiện tại: ${if (BoardReader.currentTurn == "w") "Trắng" else "Đen"}", Toast.LENGTH_SHORT).show()
+                BoardReader.lastRequestedFen = "" // Reset để nó gọi lại API
+            }
+        })
+        layout.addView(Button(this).apply {
             text = "Bắt đầu quét"
             setOnClickListener { 
                 tvError.text = "Đang xin quyền..."
@@ -73,6 +81,14 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        layout.addView(Button(this).apply {
+            text = "Đổi Lượt (Trắng/Đen)"
+            setOnClickListener {
+                BoardReader.currentTurn = if (BoardReader.currentTurn == "w") "b" else "w"
+                Toast.makeText(this@MainActivity, "Lượt hiện tại: ${if (BoardReader.currentTurn == "w") "Trắng" else "Đen"}", Toast.LENGTH_SHORT).show()
+                BoardReader.lastRequestedFen = "" // Reset để nó gọi lại API
+            }
+        })
         layout.addView(Button(this).apply {
             text = "Dừng quét"
             setOnClickListener { stopEverything() }

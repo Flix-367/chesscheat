@@ -10,36 +10,45 @@ import android.util.Log
 object BoardReader {
     var boardRect = Rect(0, 230, 1080, 1310) 
     private var lastScanTime = 0L
-    private var currentFen = ""
-    private var lastRequestedFen = ""
-    private var isWhiteTurn = true
+    var lastRequestedFen = ""
+    var currentTurn = "w" // Mặc định là Trắng, mày có thể đổi ở MainActivity
 
     fun init(ctx: Context) {
         PieceDetector.loadTemplates(ctx)
+        loadRectFromPrefs(ctx)
+    }
+
+    fun loadRectFromPrefs(ctx: Context) {
+        val prefs = ctx.getSharedPreferences("chess_prefs", Context.MODE_PRIVATE)
+        boardRect = Rect(
+            prefs.getInt("left", 0),
+            prefs.getInt("top", 230),
+            prefs.getInt("right", 1080),
+            prefs.getInt("bottom", 1310)
+        )
+        OverlayBus.updateBoardRect(boardRect)
     }
 
     fun onFrame(bmp: Bitmap) {
         val now = System.currentTimeMillis()
-        if (now - lastScanTime < 1000) return 
+        // Quét 0.5s/lần để bắt kịp thời gian thực
+        if (now - lastScanTime < 500) return 
         lastScanTime = now
 
         OverlayBus.updateBoardRect(boardRect)
 
-        val turnStr = if (isWhiteTurn) "w" else "b"
-        val newFen = PieceDetector.getFenFromBoard(bmp, boardRect, turnStr)
-
-        if (newFen != currentFen) {
-            currentFen = newFen
-            Log.d("BoardReader", "FEN mới: $newFen")
-            isWhiteTurn = !isWhiteTurn 
+        val newFen = PieceDetector.getFenFromBoard(bmp, boardRect, currentTurn)
+        
+        if (newFen != null && newFen != lastRequestedFen) {
+            lastRequestedFen = newFen
+            Log.d("BoardReader", "Đọc được FEN: $newFen")
             
-            if (currentFen != lastRequestedFen) {
-                lastRequestedFen = currentFen
-                ChessEngine.getBestMove(currentFen) { bestMove ->
-                    if (bestMove != null && bestMove.length >= 4) {
-                        Log.d("BoardReader", "AI gợi ý: $bestMove")
-                        drawArrow(bestMove)
-                    }
+            // Hiện FEN lên màn hình để debug
+            OverlayBus.updateFenText("AI đang nghĩ cho: $newFen")
+
+            ChessEngine.getBestMove(newFen) { bestMove ->
+                if (bestMove != null && bestMove.length >= 4) {
+                    drawArrow(bestMove)
                 }
             }
         }
