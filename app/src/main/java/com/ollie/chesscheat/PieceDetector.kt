@@ -21,7 +21,7 @@ object PieceDetector {
         isLoaded = templates.isNotEmpty()
     }
 
-    fun getFenFromBoard(fullBmp: Bitmap, boardRect: Rect, turn: String): String {
+    fun getFenFromBoard(fullBmp: Bitmap, boardRect: Rect, turn: String, isFlipped: Boolean): String {
         if (!isLoaded) return "LỖI: Chưa tải được 12 ảnh quân cờ!"
         
         val boardBmp = Bitmap.createBitmap(fullBmp, boardRect.left, boardRect.top, boardRect.width(), boardRect.height())
@@ -35,11 +35,15 @@ object PieceDetector {
             var empty = 0
             var rowStr = ""
             for (c in 0..7) {
+                // Nếu bàn cờ lật, đảo ngược toạ độ đọc
+                val actualR = if (isFlipped) 7 - r else r
+                val actualC = if (isFlipped) 7 - c else c
+
                 val cellPixels = IntArray(32 * 32)
                 var idx = 0
                 for (cy in 0 until 32) {
                     for (cx in 0 until 32) {
-                        cellPixels[idx++] = allPixels[(r * 32 + cy) * 256 + (c * 32 + cx)]
+                        cellPixels[idx++] = allPixels[((actualR * 32 + cy) * 256) + (actualC * 32 + cx)]
                     }
                 }
                 
@@ -60,7 +64,7 @@ object PieceDetector {
     private fun findBestMatch(cellPixels: IntArray): String? {
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        val threshold = 60.0 // Nới lỏng ngưỡng
+        val threshold = 60.0 
 
         for ((name, template) in templates) {
             val tplPixels = IntArray(32 * 32)

@@ -12,6 +12,7 @@ object BoardReader {
     private var lastScanTime = 0L
     var lastRequestedFen = ""
     var currentTurn = "w"
+    var isFlipped = false
 
     fun init(ctx: Context) {
         PieceDetector.loadTemplates(ctx)
@@ -36,7 +37,7 @@ object BoardReader {
 
         OverlayBus.updateBoardRect(boardRect)
 
-        val newFen = PieceDetector.getFenFromBoard(bmp, boardRect, currentTurn)
+        val newFen = PieceDetector.getFenFromBoard(bmp, boardRect, currentTurn, isFlipped)
         OverlayBus.updateFenText("FEN: $newFen")
 
         if (newFen.startsWith("LỖI")) return
@@ -58,8 +59,14 @@ object BoardReader {
         val cellH = (boardRect.bottom - boardRect.top) / 8f
         
         fun getXY(square: String): Pair<Float, Float> {
-            val file = square[0].lowercaseChar() - 'a'
-            val rank = 8 - square[1].digitToInt()
+            var file = square[0].lowercaseChar() - 'a'
+            var rank = 8 - square[1].digitToInt()
+            
+            if (isFlipped) {
+                file = 7 - file
+                rank = 7 - rank
+            }
+            
             val x = boardRect.left + file * cellW + cellW / 2
             val y = boardRect.top + rank * cellH + cellH / 2
             return Pair(x, y)

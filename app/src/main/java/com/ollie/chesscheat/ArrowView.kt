@@ -30,7 +30,7 @@ class ArrowView(ctx: Context) : View(ctx) {
     override fun onDraw(canvas: Canvas) {
         OverlayBus.boardRect?.let { rect ->
             canvas.drawRect(rect, boxPaint)
-            canvas.drawText(OverlayBus.fenText, rect.left.toFloat(), (rect.top - 20).toFloat(), textPaint)
+            canvas.drawText(OverlayBus.fenText, rect.left.toFloat(), (rect.top + 40).toFloat(), textPaint)
             
             val cellW = rect.width() / 8f
             val cellH = rect.height() / 8f
