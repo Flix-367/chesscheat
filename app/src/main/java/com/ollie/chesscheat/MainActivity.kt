@@ -41,7 +41,6 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { stopEverything() }
         }
         layout.addView(btnStop)
-
         setContentView(layout)
     }
 
@@ -59,11 +58,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopEverything() {
-        // Tắt service chụp màn hình
         stopService(Intent(this, ScreenCaptureService::class.java))
-        // Tắt overlay vẽ khung
         stopService(Intent(this, OverlayService::class.java))
-        // Xoá dữ liệu tạm
         OverlayBus.boardRect = null
         OverlayBus.view = null
     }

@@ -5,6 +5,9 @@ import android.content.Intent
 import android.graphics.*
 import android.os.IBinder
 import android.view.*
+import android.widget.Toast
+import android.os.Handler
+import android.os.Looper
 
 class OverlayService : Service() {
     private lateinit var wm: WindowManager
@@ -16,7 +19,7 @@ class OverlayService : Service() {
         super.onCreate()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         view = ArrowView(this)
-        OverlayBus.view = view // Đăng ký nhận lệnh vẽ
+        OverlayBus.view = view
         
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -28,6 +31,10 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT)
         lp.gravity = Gravity.TOP or Gravity.START
         wm.addView(view, lp)
+        
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(this, "Đã bật Overlay!", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onDestroy() {

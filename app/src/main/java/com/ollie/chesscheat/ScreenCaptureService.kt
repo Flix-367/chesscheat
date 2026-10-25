@@ -3,6 +3,7 @@ package com.ollie.chesscheat
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
@@ -14,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 
 class ScreenCaptureService : Service() {
@@ -24,14 +26,28 @@ class ScreenCaptureService : Service() {
     override fun onBind(i: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(1, buildNotif())
+        val notif = buildNotif()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            startForeground(1, notif)
+        }
+
         val resultCode = intent?.getIntExtra("resultCode", Activity.RESULT_CANCELED) ?: Activity.RESULT_CANCELED
-        val data = intent?.getParcelableExtra<Intent>("data")
+        val data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra("data", Intent::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra("data")
+        }
         
-        if (data != null) {
+        if (data != null && projection == null) {
             val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             projection = mpm.getMediaProjection(resultCode, data)
             setupCapture()
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(this, "Bắt đầu chụp màn hình!", Toast.LENGTH_SHORT).show()
+            }
         }
         return START_STICKY
     }
@@ -65,10 +81,10 @@ class ScreenCaptureService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Dọn dẹp tài nguyên
         display?.release()
         reader?.close()
         projection?.stop()
+        projection = null
     }
 
     private fun buildNotif(): Notification {
