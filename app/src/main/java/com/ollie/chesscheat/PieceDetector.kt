@@ -2,6 +2,9 @@ package com.ollie.chesscheat
 
 import android.content.Context
 import android.graphics.*
+import android.os.Environment
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -9,6 +12,7 @@ import kotlin.math.min
 object PieceDetector {
     private val templates = mutableMapOf<String, Bitmap>()
     private var isLoaded = false
+    private var savedCount = 0
 
     fun loadTemplates(ctx: Context) {
         if (isLoaded) return
@@ -36,6 +40,19 @@ object PieceDetector {
         val boardBmp = Bitmap.createBitmap(fullBmp, safeLeft, safeTop, safeRight - safeLeft, safeBottom - safeTop)
         val scaledBoard = Bitmap.createScaledBitmap(boardBmp, 256, 256, true)
         
+        // --- LƯU ẢNH DEBUG ĐỂ XEM MẮT NÓ THẤY GÌ ---
+        if (savedCount < 5) {
+            try {
+                val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = File(downloadDir, "board_crop_$savedCount.png")
+                val out = FileOutputStream(file)
+                scaledBoard.compress(Bitmap.CompressFormat.PNG, 100, out)
+                out.close()
+                savedCount++
+            } catch (e: Exception) {}
+        }
+        // -------------------------------------------
+
         val allPixels = IntArray(256 * 256)
         scaledBoard.getPixels(allPixels, 0, 256, 0, 0, 256, 256)
 
@@ -70,19 +87,9 @@ object PieceDetector {
     }
 
     private fun findBestMatch(cellPixels: IntArray): String? {
-        var maxB = 0
-        var minB = 255
-        // 1. Kiểm tra độ tương phản. Nếu ô quá đồng màu -> Bàn cờ trống
-        for (px in cellPixels) {
-            val b = ((px shr 16 and 0xFF) * 0.299 + (px shr 8 and 0xFF) * 0.587 + (px and 0xFF) * 0.114).toInt()
-            if (b > maxB) maxB = b
-            if (b < minB) minB = b
-        }
-        if (maxB - minB < 40) return null // Đây là ô trống
-
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        val threshold = 150.0 // Ngưỡng sai số bình phương
+        val threshold = 150.0 
 
         for ((name, template) in templates) {
             val tplPixels = IntArray(32 * 32)
@@ -93,11 +100,10 @@ object PieceDetector {
             
             for (i in 0 until 32 * 32) {
                 val tplAlpha = (tplPixels[i] ushr 24) and 0xFF
-                if (tplAlpha > 50) {
+                if (tplAlpha > 50) { // Lấy các pixel đặc của quân cờ
                     val c1 = (cellPixels[i] shr 16 and 0xFF) * 0.299 + (cellPixels[i] shr 8 and 0xFF) * 0.587 + (cellPixels[i] and 0xFF) * 0.114
                     val c2 = (tplPixels[i] shr 16 and 0xFF) * 0.299 + (tplPixels[i] shr 8 and 0xFF) * 0.587 + (tplPixels[i] and 0xFF) * 0.114
-                    val d = (c1 - c2)
-                    diff += d * d // Bình phương sai số
+                    diff += abs(c1 - c2)
                     validPixels++
                 }
             }
