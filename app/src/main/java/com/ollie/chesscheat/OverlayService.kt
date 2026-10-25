@@ -16,6 +16,8 @@ class OverlayService : Service() {
         super.onCreate()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         view = ArrowView(this)
+        OverlayBus.view = view // Đăng ký nhận lệnh vẽ
+        
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -26,13 +28,11 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT)
         lp.gravity = Gravity.TOP or Gravity.START
         wm.addView(view, lp)
-        
-        // Giả lập vẽ 1 mũi tên gợi ý từ toạ độ A sang B
-        view.arrow = ArrowView.Arrow(300f, 800f, 800f, 800f)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         if (::view.isInitialized) wm.removeView(view)
+        OverlayBus.view = null
     }
 }

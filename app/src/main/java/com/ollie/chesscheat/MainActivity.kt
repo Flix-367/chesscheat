@@ -17,32 +17,25 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 100, 60, 60)
         }
-        
-        val title = TextView(this).apply {
-            text = "Chess Cheat - Ollie Build"
+        layout.addView(TextView(this).apply {
+            text = "Chess Cheat - Overlay Test"
             textSize = 24f
-            setPadding(0, 0, 0, 60)
-        }
-        layout.addView(title)
-
-        val btnStart = Button(this).apply {
-            text = "Bắt đầu quét bàn cờ"
+        })
+        
+        layout.addView(Button(this).apply {
+            text = "Bắt đầu quét"
             setOnClickListener { checkPermissions() }
-        }
-        layout.addView(btnStart)
-
+        })
         setContentView(layout)
     }
 
     private fun checkPermissions() {
         if (!Settings.canDrawOverlays(this)) {
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-            startActivityForResult(intent, REQ_OVERLAY)
+            startActivityForResult(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), REQ_OVERLAY)
         } else {
             startCapture()
         }
@@ -59,8 +52,14 @@ class MainActivity : AppCompatActivity() {
             if (Settings.canDrawOverlays(this)) startCapture()
         } else if (requestCode == REQ_CAPTURE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                // Bật overlay vẽ mũi tên
+                // Bật overlay
                 startService(Intent(this, OverlayService::class.java))
+                // Bật quét màn hình
+                val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
+                    putExtra("resultCode", resultCode)
+                    putExtra("data", data)
+                }
+                startForegroundService(serviceIntent)
             }
         }
     }
