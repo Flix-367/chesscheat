@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
 import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -11,7 +13,6 @@ import java.io.IOException
 
 object ChessEngine {
     private val client = OkHttpClient()
-    // NHÉT KEY VÀO ĐÂY
     private const val GEMINI_API_KEY = "AQ.Ab8RN6LMzrOlGiSr1fM_BxiOLWF7AlF8nlygADr8vXGKvtzm_w"
     private const val GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY"
 
@@ -46,7 +47,7 @@ object ChessEngine {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!response.isSuccessful) { 
-                        Log.e("ChessEngine", "API lỗi: ${response.code}")
+                        Log.e("ChessEngine", "API lỗi: ${response.code} - ${response.message}")
                         onResult(null)
                         return 
                     }
