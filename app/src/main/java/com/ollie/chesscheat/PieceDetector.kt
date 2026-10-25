@@ -24,14 +24,14 @@ object PieceDetector {
     }
 
     fun getFenFromBoard(fullBmp: Bitmap, rect: Rect, turn: String, isFlipped: Boolean): String {
-        if (!isLoaded) return "LỖI: Thiếu 12 ảnh quân cờ!"
+        if (!isLoaded) return "LỖI: Thiếu ảnh!"
         
         val safeLeft = max(0, rect.left)
         val safeTop = max(0, rect.top)
         val safeRight = min(fullBmp.width, rect.right)
         val safeBottom = min(fullBmp.height, rect.bottom)
         
-        if (safeRight <= safeLeft || safeBottom <= safeTop) return "LỖI: Khung toạ độ sai!"
+        if (safeRight <= safeLeft || safeBottom <= safeTop) return "LỖI: Toạ độ sai!"
 
         val boardBmp = Bitmap.createBitmap(fullBmp, safeLeft, safeTop, safeRight - safeLeft, safeBottom - safeTop)
         val scaledBoard = Bitmap.createScaledBitmap(boardBmp, 256, 256, true)
@@ -70,17 +70,19 @@ object PieceDetector {
     }
 
     private fun findBestMatch(cellPixels: IntArray): String? {
+        var maxB = 0
+        var minB = 255
+        // 1. Kiểm tra độ tương phản. Nếu ô quá đồng màu -> Bàn cờ trống
+        for (px in cellPixels) {
+            val b = ((px shr 16 and 0xFF) * 0.299 + (px shr 8 and 0xFF) * 0.587 + (px and 0xFF) * 0.114).toInt()
+            if (b > maxB) maxB = b
+            if (b < minB) minB = b
+        }
+        if (maxB - minB < 40) return null // Đây là ô trống
+
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        val threshold = 50.0 // Hạ ngưỡng xuống để bớt đọc nhầm nền thành quân cờ
-
-        // 1. Tính độ sáng trung bình của ô cờ hiện tại
-        var totalBrightness = 0
-        for (px in cellPixels) {
-            val b = (px shr 16 and 0xFF) * 0.299 + (px shr 8 and 0xFF) * 0.587 + (px and 0xFF) * 0.114
-            totalBrightness += b.toInt()
-        }
-        val avgBrightness = totalBrightness / cellPixels.size
+        val threshold = 150.0 // Ngưỡng sai số bình phương
 
         for ((name, template) in templates) {
             val tplPixels = IntArray(32 * 32)
@@ -91,10 +93,11 @@ object PieceDetector {
             
             for (i in 0 until 32 * 32) {
                 val tplAlpha = (tplPixels[i] ushr 24) and 0xFF
-                if (tplAlpha > 100) { // Nới lỏng alpha một chút để bắt được viền quân cờ
+                if (tplAlpha > 50) {
                     val c1 = (cellPixels[i] shr 16 and 0xFF) * 0.299 + (cellPixels[i] shr 8 and 0xFF) * 0.587 + (cellPixels[i] and 0xFF) * 0.114
                     val c2 = (tplPixels[i] shr 16 and 0xFF) * 0.299 + (tplPixels[i] shr 8 and 0xFF) * 0.587 + (tplPixels[i] and 0xFF) * 0.114
-                    diff += abs(c1 - c2)
+                    val d = (c1 - c2)
+                    diff += d * d // Bình phương sai số
                     validPixels++
                 }
             }
@@ -103,13 +106,6 @@ object PieceDetector {
                 diff /= validPixels.toDouble()
                 if (diff < minDiff && diff < threshold) {
                     minDiff = diff
-                    // 2. Check xem quân cờ này có khớp màu với độ sáng của ô không
-                    val isWhitePiece = name[0].isUpperCase()
-                    // Nếu là quân Trắng mà độ sáng TB < 100 -> Nhầm, nó là quân Đen
-                    // Nếu là quân Đen mà độ sáng TB > 150 -> Nhầm, nó là quân Trắng
-                    if (isWhitePiece && avgBrightness < 100) continue
-                    if (!isWhitePiece && avgBrightness > 150) continue
-
                     bestName = name
                 }
             }
