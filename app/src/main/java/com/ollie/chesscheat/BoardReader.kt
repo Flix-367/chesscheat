@@ -9,24 +9,38 @@ import android.util.Log
 object BoardReader {
     var boardRect = Rect(0, 230, 1080, 1310) 
     private var lastScanTime = 0L
+    // FEN mặc định: Ván mới (để test)
     private var currentFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
     fun onFrame(bmp: Bitmap) {
         val now = System.currentTimeMillis()
-        if (now - lastScanTime < 2000) return 
+        if (now - lastScanTime < 3000) return // 3 giây quét 1 lần cho đỡ lag
         lastScanTime = now
 
         OverlayBus.updateBoardRect(boardRect)
 
         ChessEngine.getBestMove(currentFen) { bestMove ->
-            if (bestMove != null) {
+            if (bestMove != null && bestMove.length >= 4) {
                 Log.d("BoardReader", "AI gợi ý: $bestMove")
-                val cx = (boardRect.left + boardRect.right) / 2f
-                val cy = (boardRect.top + boardRect.bottom) / 2f
                 
-                // Bọc lệnh vẽ vào Main Thread để tránh crash
+                // Tính toán toạ độ vẽ mũi tên (giả lập)
+                val cellW = (boardRect.right - boardRect.left) / 8f
+                val cellH = (boardRect.bottom - boardRect.top) / 8f
+                
+                // Đổi toạ độ e2e4 sang pixel
+                fun getXY(square: String): Pair<Float, Float> {
+                    val file = square[0].lowercaseChar() - 'a'
+                    val rank = 8 - square[1].digitToInt()
+                    val x = boardRect.left + file * cellW + cellW / 2
+                    val y = boardRect.top + rank * cellH + cellH / 2
+                    return Pair(x, y)
+                }
+
+                val from = getXY(bestMove.substring(0, 2))
+                val to = getXY(bestMove.substring(2, 4))
+
                 Handler(Looper.getMainLooper()).post {
-                    OverlayBus.updateArrow(cx, cy, cx + 200f, cy)
+                    OverlayBus.updateArrow(from.first, from.second, to.first, to.second)
                 }
             }
         }
@@ -40,7 +54,7 @@ object OverlayBus {
 
     fun updateBoardRect(rect: Rect) {
         this.boardRect = rect
-        view?.post { view?.invalidate() } // Đổi sang post cho an toàn
+        view?.post { view?.invalidate() }
     }
 
     fun updateArrow(fromX: Float, fromY: Float, toX: Float, toY: Float) {

@@ -2,8 +2,6 @@ package com.ollie.chesscheat
 
 import android.util.Log
 import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
 
@@ -11,8 +9,8 @@ object ChessEngine {
     private val client = OkHttpClient()
 
     fun getBestMove(fen: String, onResult: (String?) -> Unit) {
-        // Dùng API Lichess Cloud Eval miễn phí
-        val url = "https://lichess.org/api/cloud-eval?fen=${fen.replace(" ", "%20")}&multiPv=1"
+        // Dùng API Stockfish Online (chạy engine thật trên server)
+        val url = "https://stockfish.online/api/s/v2.php?fen=${fen.replace(" ", "%20")}&depth=12"
         val request = Request.Builder().url(url).build()
 
         client.newCall(request).enqueue(object : Callback {
@@ -29,16 +27,16 @@ object ChessEngine {
                     val body = response.body?.string()
                     try {
                         val json = JSONObject(body ?: "")
-                        val pvs = json.optJSONArray("pvs")
-                        if (pvs != null && pvs.length() > 0) {
-                            val moves = pvs.getJSONObject(0).optString("moves")
-                            // Lấy nước đầu tiên (ví dụ: e2e4)
-                            val bestMove = moves.split(" ").firstOrNull()
+                        if (json.optBoolean("success", false)) {
+                            // Chuỗi trả về dạng: "bestmove e2e4 ponder ..."
+                            val bestMoveStr = json.optString("bestmove")
+                            val bestMove = bestMoveStr.split(" ").getOrNull(1) // Lấy e2e4
                             onResult(bestMove)
                         } else {
                             onResult(null)
                         }
                     } catch (e: Exception) {
+                        Log.e("ChessEngine", "Lỗi parse JSON: ${e.message}")
                         onResult(null)
                     }
                 }
