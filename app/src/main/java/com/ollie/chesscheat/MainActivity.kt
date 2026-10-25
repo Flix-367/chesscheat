@@ -70,6 +70,31 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        // NÚT TEST AI
+        layout.addView(Button(this).apply {
+            text = "TEST AI (Vẽ mũi tên e2-e4)"
+            setOnClickListener {
+                // Gửi thẳng FEN ván mới lên AI
+                ChessEngine.getBestMove("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") { bestMove ->
+                    if (bestMove != null && bestMove.length >= 4) {
+                        tvError.text = "AI trả lời: $bestMove"
+                        // Vẽ thẳng mũi tên lên Overlay
+                        val cellW = (BoardReader.boardRect.right - BoardReader.boardRect.left) / 8f
+                        val cellH = (BoardReader.boardRect.bottom - BoardReader.boardRect.top) / 8f
+                        fun getXY(sq: String): Pair<Float, Float> {
+                            val f = sq[0] - 'a'; val r = 8 - sq[1].digitToInt()
+                            return Pair(BoardReader.boardRect.left + f * cellW + cellW/2, BoardReader.boardRect.top + r * cellH + cellH/2)
+                        }
+                        val from = getXY(bestMove.substring(0,2))
+                        val to = getXY(bestMove.substring(2,4))
+                        OverlayBus.updateArrow(from.first, from.second, to.first, to.second)
+                    } else {
+                        tvError.text = "Lỗi gọi AI, check mạng!"
+                    }
+                }
+            }
+        })
+
         layout.addView(Button(this).apply {
             text = "Lật Bàn Cờ (Đen/Trắng)"
             setOnClickListener {
@@ -147,7 +172,7 @@ class MainActivity : AppCompatActivity() {
                         putExtra("data", data)
                     }
                     startForegroundService(serviceIntent)
-                    tvError.text = "Quét thành công! Chỉnh toạ độ nếu lệch."
+                    tvError.text = "Quét thành công! Bấm TEST AI để thử."
                 } catch (e: Exception) {
                     tvError.text = "Lỗi Start Service: ${e.message}"
                 }

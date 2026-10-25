@@ -3,6 +3,8 @@ package com.ollie.chesscheat
 import android.content.Context
 import android.graphics.*
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
 object PieceDetector {
     private val templates = mutableMapOf<String, Bitmap>()
@@ -21,10 +23,17 @@ object PieceDetector {
         isLoaded = templates.isNotEmpty()
     }
 
-    fun getFenFromBoard(fullBmp: Bitmap, boardRect: Rect, turn: String, isFlipped: Boolean): String {
-        if (!isLoaded) return "LỖI: Chưa tải được 12 ảnh quân cờ!"
+    fun getFenFromBoard(fullBmp: Bitmap, rect: Rect, turn: String, isFlipped: Boolean): String {
+        if (!isLoaded) return "LỖI: Thiếu 12 ảnh quân cờ!"
         
-        val boardBmp = Bitmap.createBitmap(fullBmp, boardRect.left, boardRect.top, boardRect.width(), boardRect.height())
+        val safeLeft = max(0, rect.left)
+        val safeTop = max(0, rect.top)
+        val safeRight = min(fullBmp.width, rect.right)
+        val safeBottom = min(fullBmp.height, rect.bottom)
+        
+        if (safeRight <= safeLeft || safeBottom <= safeTop) return "LỖI: Khung toạ độ sai!"
+
+        val boardBmp = Bitmap.createBitmap(fullBmp, safeLeft, safeTop, safeRight - safeLeft, safeBottom - safeTop)
         val scaledBoard = Bitmap.createScaledBitmap(boardBmp, 256, 256, true)
         
         val allPixels = IntArray(256 * 256)
@@ -35,7 +44,6 @@ object PieceDetector {
             var empty = 0
             var rowStr = ""
             for (c in 0..7) {
-                // Nếu bàn cờ lật, đảo ngược toạ độ đọc
                 val actualR = if (isFlipped) 7 - r else r
                 val actualC = if (isFlipped) 7 - c else c
 
@@ -64,7 +72,8 @@ object PieceDetector {
     private fun findBestMatch(cellPixels: IntArray): String? {
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        val threshold = 60.0 
+        // Tăng ngưỡng lên 85.0 để dễ nhận diện hơn (chấp nhận sai số)
+        val threshold = 85.0 
 
         for ((name, template) in templates) {
             val tplPixels = IntArray(32 * 32)
