@@ -5,7 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import kotlin.math.max
+import kotlin.math.min
 
 object BoardReader {
     var boardRect = Rect(0, 230, 1080, 1310) 
@@ -22,30 +23,29 @@ object BoardReader {
     fun loadRectFromPrefs(ctx: Context) {
         val prefs = ctx.getSharedPreferences("chess_prefs", Context.MODE_PRIVATE)
         boardRect = Rect(
-            prefs.getInt("left", 0),
-            prefs.getInt("top", 230),
-            prefs.getInt("right", 1080),
-            prefs.getInt("bottom", 1310)
+            prefs.getInt("left", 0), prefs.getInt("top", 230),
+            prefs.getInt("right", 1080), prefs.getInt("bottom", 1310)
         )
         OverlayBus.updateBoardRect(boardRect)
     }
 
     fun onFrame(bmp: Bitmap) {
         val now = System.currentTimeMillis()
-        if (now - lastScanTime < 300) return 
+        if (now - lastScanTime < 1000) return 
         lastScanTime = now
 
-        // Cố tình gọi hàm vẽ khung liên tục để test
         OverlayBus.updateBoardRect(boardRect)
 
         val newFen = PieceDetector.getFenFromBoard(bmp, boardRect, currentTurn, isFlipped)
-        OverlayBus.updateFenText("FEN: $newFen")
-
-        if (newFen.startsWith("LỖI")) return
+        
+        if (newFen.startsWith("LỖI")) {
+            OverlayBus.updateFenText(newFen)
+            return
+        }
 
         if (newFen != lastRequestedFen) {
             lastRequestedFen = newFen
-            Log.d("BoardReader", "Đọc được FEN: $newFen")
+            OverlayBus.updateFenText("FEN: $newFen")
             
             ChessEngine.getBestMove(newFen) { bestMove ->
                 if (bestMove != null && bestMove.length >= 4) {
@@ -62,13 +62,8 @@ object BoardReader {
         fun getXY(square: String): Pair<Float, Float> {
             var file = square[0].lowercaseChar() - 'a'
             var rank = 8 - square[1].digitToInt()
-            if (isFlipped) {
-                file = 7 - file
-                rank = 7 - rank
-            }
-            val x = boardRect.left + file * cellW + cellW / 2
-            val y = boardRect.top + rank * cellH + cellH / 2
-            return Pair(x, y)
+            if (isFlipped) { file = 7 - file; rank = 7 - rank }
+            return Pair(boardRect.left + file * cellW + cellW / 2, boardRect.top + rank * cellH + cellH / 2)
         }
 
         val from = getXY(bestMove.substring(0, 2))

@@ -24,14 +24,14 @@ object PieceDetector {
     }
 
     fun getFenFromBoard(fullBmp: Bitmap, rect: Rect, turn: String, isFlipped: Boolean): String {
-        if (!isLoaded) return "LỖI: Thiếu ảnh!"
+        if (!isLoaded) return "LỖI: Thiếu ảnh quân cờ!"
         
         val safeLeft = max(0, rect.left)
         val safeTop = max(0, rect.top)
         val safeRight = min(fullBmp.width, rect.right)
         val safeBottom = min(fullBmp.height, rect.bottom)
         
-        if (safeRight <= safeLeft || safeBottom <= safeTop) return "LỖI: Toạ độ sai!"
+        if (safeRight <= safeLeft || safeBottom <= safeTop) return "LỖI: Khung sai!"
 
         val boardBmp = Bitmap.createBitmap(fullBmp, safeLeft, safeTop, safeRight - safeLeft, safeBottom - safeTop)
         val scaledBoard = Bitmap.createScaledBitmap(boardBmp, 256, 256, true)
@@ -70,29 +70,21 @@ object PieceDetector {
     }
 
     private fun findBestMatch(cellPixels: IntArray): String? {
-        // Kiểm tra xem ô có quân cờ không bằng cách so sánh độ chênh lệch màu ở 4 góc và giữa
-        // Nếu ô trống, cả 5 điểm này sẽ cùng một màu (xanh hoặc trắng)
-        val corners = intArrayOf(
-            cellPixels[0], cellPixels[31], 
-            cellPixels[31 * 32], cellPixels[31 * 32 + 31],
-            cellPixels[16 * 32 + 16]
-        )
-        var maxCornerDiff = 0
-        for (i in 0 until 5) {
-            for (j in i+1 until 5) {
+        // Kiểm tra 4 góc của ô. Nếu 4 góc cùng màu -> ô trống
+        val corners = intArrayOf(cellPixels[0], cellPixels[31], cellPixels[31 * 32], cellPixels[31 * 32 + 31])
+        var sameColorCount = 0
+        for (i in 0 until 4) {
+            for (j in i+1 until 4) {
                 val r1 = corners[i] shr 16 and 0xFF; val g1 = corners[i] shr 8 and 0xFF; val b1 = corners[i] and 0xFF
                 val r2 = corners[j] shr 16 and 0xFF; val g2 = corners[j] shr 8 and 0xFF; val b2 = corners[j] and 0xFF
-                val diff = abs(r1-r2) + abs(g1-g2) + abs(b1-b2)
-                if (diff > maxCornerDiff) maxCornerDiff = diff
+                if (abs(r1-r2) < 30 && abs(g1-g2) < 30 && abs(b1-b2) < 30) sameColorCount++
             }
         }
-        // Nếu chênh lệch màu giữa các góc quá nhỏ, đây là ô trống
-        if (maxCornerDiff < 30) return null
+        if (sameColorCount >= 3) return null // Ô trống
 
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        // Hạ ngưỡng cực chặt, chỉ khớp khi giống hệt
-        val threshold = 25.0 
+        val threshold = 45.0 
 
         for ((name, template) in templates) {
             val tplPixels = IntArray(32 * 32)
@@ -103,7 +95,7 @@ object PieceDetector {
             
             for (i in 0 until 32 * 32) {
                 val tplAlpha = (tplPixels[i] ushr 24) and 0xFF
-                if (tplAlpha > 150) { // Chỉ so sánh phần lõi đặc của quân cờ
+                if (tplAlpha > 100) { // Chỉ so sánh phần lõi đặc
                     val c1 = (cellPixels[i] shr 16 and 0xFF) * 0.299 + (cellPixels[i] shr 8 and 0xFF) * 0.587 + (cellPixels[i] and 0xFF) * 0.114
                     val c2 = (tplPixels[i] shr 16 and 0xFF) * 0.299 + (tplPixels[i] shr 8 and 0xFF) * 0.587 + (tplPixels[i] and 0xFF) * 0.114
                     diff += abs(c1 - c2)
@@ -111,7 +103,7 @@ object PieceDetector {
                 }
             }
             
-            if (validPixels > 150) { // Quân cờ phải có đủ số pixel đặc
+            if (validPixels > 100) {
                 diff /= validPixels.toDouble()
                 if (diff < minDiff && diff < threshold) {
                     minDiff = diff

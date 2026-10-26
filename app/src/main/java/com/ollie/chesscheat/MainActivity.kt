@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         try { BoardReader.init(this) } catch (e: Exception) {}
+        ChessEngine.initEngine(this)
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
