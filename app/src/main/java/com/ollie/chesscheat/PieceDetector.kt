@@ -1,4 +1,5 @@
 package com.ollie.chesscheat
+
 import android.content.Context
 import android.graphics.*
 import kotlin.math.abs
@@ -23,13 +24,18 @@ object PieceDetector {
     }
 
     fun getFenFromBoard(fullBmp: Bitmap, rect: Rect, turn: String, isFlipped: Boolean): String {
-        if (!isLoaded) return "LỖI: Thiếu ảnh!"
-        val safeLeft = max(0, rect.left); val safeTop = max(0, rect.top)
-        val safeRight = min(fullBmp.width, rect.right); val safeBottom = min(fullBmp.height, rect.bottom)
+        if (!isLoaded) return "LỖI: Thiếu ảnh quân cờ!"
+        
+        val safeLeft = max(0, rect.left)
+        val safeTop = max(0, rect.top)
+        val safeRight = min(fullBmp.width, rect.right)
+        val safeBottom = min(fullBmp.height, rect.bottom)
+        
         if (safeRight <= safeLeft || safeBottom <= safeTop) return "LỖI: Toạ độ sai!"
 
         val boardBmp = Bitmap.createBitmap(fullBmp, safeLeft, safeTop, safeRight - safeLeft, safeBottom - safeTop)
         val scaledBoard = Bitmap.createScaledBitmap(boardBmp, 256, 256, true)
+        
         val allPixels = IntArray(256 * 256)
         scaledBoard.getPixels(allPixels, 0, 256, 0, 0, 256, 256)
 
@@ -40,12 +46,22 @@ object PieceDetector {
             for (c in 0..7) {
                 val actualR = if (isFlipped) 7 - r else r
                 val actualC = if (isFlipped) 7 - c else c
+
                 val cellPixels = IntArray(32 * 32)
                 var idx = 0
-                for (cy in 0 until 32) { for (cx in 0 until 32) { cellPixels[idx++] = allPixels[((actualR * 32 + cy) * 256) + (actualC * 32 + cx)] } }
+                for (cy in 0 until 32) {
+                    for (cx in 0 until 32) {
+                        cellPixels[idx++] = allPixels[((actualR * 32 + cy) * 256) + (actualC * 32 + cx)]
+                    }
+                }
                 
                 val bestMatch = findBestMatch(cellPixels)
-                if (bestMatch == null) { empty++ } else { if (empty > 0) { rowStr += empty; empty = 0 }; rowStr += bestMatch }
+                if (bestMatch == null) {
+                    empty++
+                } else {
+                    if (empty > 0) { rowStr += empty; empty = 0 }
+                    rowStr += bestMatch
+                }
             }
             if (empty > 0) rowStr += empty
             rows.add(rowStr)
@@ -54,35 +70,45 @@ object PieceDetector {
     }
 
     private fun findBestMatch(cellPixels: IntArray): String? {
+        // Kiểm tra 4 góc của ô. Nếu 4 góc cùng màu -> ô trống
         val corners = intArrayOf(cellPixels[0], cellPixels[31], cellPixels[31 * 32], cellPixels[31 * 32 + 31])
         var sameColorCount = 0
         for (i in 0 until 4) {
             for (j in i+1 until 4) {
                 val r1 = corners[i] shr 16 and 0xFF; val g1 = corners[i] shr 8 and 0xFF; val b1 = corners[i] and 0xFF
                 val r2 = corners[j] shr 16 and 0xFF; val g2 = corners[j] shr 8 and 0xFF; val b2 = corners[j] and 0xFF
-                if (abs(r1-r2) < 30 && abs(g1-g2) < 30 && abs(b1-b2) < 30) sameColorCount++
+                if (abs(r1-r2) < 40 && abs(g1-g2) < 40 && abs(b1-b2) < 40) sameColorCount++
             }
         }
-        if (sameColorCount >= 3) return null
+        if (sameColorCount >= 3) return null // Ô trống
 
         var bestName: String? = null
         var minDiff = Double.MAX_VALUE
-        val threshold = 45.0
+        val threshold = 80.0 // Nới lỏng ngưỡng tối đa để bắt quân cờ
+
         for ((name, template) in templates) {
             val tplPixels = IntArray(32 * 32)
             template.getPixels(tplPixels, 0, 32, 0, 0, 32, 32)
-            var diff = 0.0; var validPixels = 0
+
+            var diff = 0.0
+            var validPixels = 0
+            
             for (i in 0 until 32 * 32) {
                 val tplAlpha = (tplPixels[i] ushr 24) and 0xFF
-                if (tplAlpha > 100) {
+                if (tplAlpha > 100) { // Chỉ so sánh phần lõi đặc
                     val c1 = (cellPixels[i] shr 16 and 0xFF) * 0.299 + (cellPixels[i] shr 8 and 0xFF) * 0.587 + (cellPixels[i] and 0xFF) * 0.114
                     val c2 = (tplPixels[i] shr 16 and 0xFF) * 0.299 + (tplPixels[i] shr 8 and 0xFF) * 0.587 + (tplPixels[i] and 0xFF) * 0.114
-                    diff += abs(c1 - c2); validPixels++
+                    diff += abs(c1 - c2)
+                    validPixels++
                 }
             }
+            
             if (validPixels > 100) {
                 diff /= validPixels.toDouble()
-                if (diff < minDiff && diff < threshold) { minDiff = diff; bestName = name }
+                if (diff < minDiff && diff < threshold) {
+                    minDiff = diff
+                    bestName = name
+                }
             }
         }
         return bestName
